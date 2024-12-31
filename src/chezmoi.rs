@@ -32,11 +32,12 @@ pub fn update_status() -> Vec<FileItem> {
     let files: Vec<FileItem> = String::from_utf8_lossy(&output.stdout)
         .lines()
         .map(|line| {
-            let (path, status) = utils::extract_filename_and_status(line);
+            let (path, local_status, source_status) = utils::extract_filename_and_status(line);
             FileItem {
                 path,
                 selected: false,
-                status,
+                local_status,
+                source_status,
             }
         })
         .collect();

@@ -1,22 +1,33 @@
-use crate::app::FileStatus;
+#[derive(Debug, Clone, PartialEq)]
+pub enum FileStatus {
+    Modified,
+    Added,
+    Deleted,
+    Untracked,
+    Unchanged,
+}
 
-pub fn extract_filename_and_status(line: &str) -> (String, FileStatus) {
-    // chezmoi status output format is similar to git status --porcelain
-    let status = if line.starts_with("A ") {
-        FileStatus::Added
-    } else if line.starts_with("M ") {
-        FileStatus::Modified
-    } else if line.starts_with("D ") {
-        FileStatus::Deleted
-    } else if line.starts_with("?? ") {
-        FileStatus::Untracked
-    } else if line.starts_with("R ") {
-        FileStatus::Renamed
-    } else {
-        FileStatus::Modified // default case
+pub fn extract_filename_and_status(line: &str) -> (String, FileStatus, FileStatus) {
+    let status_chars = &line[0..2];
+    let path = line[2..].trim().to_string();
+
+    // Extract local status (first char)
+    let local_status = match status_chars.chars().next().unwrap_or(' ') {
+        'M' => FileStatus::Modified,
+        'A' => FileStatus::Added,
+        'D' => FileStatus::Deleted,
+        '?' => FileStatus::Untracked,
+        _ => FileStatus::Unchanged,
     };
 
-    // Extract filename by removing status prefix
-    let path = line.split_whitespace().last().unwrap_or("").to_string();
-    (path, status)
+    // Extract source status (second char)
+    let source_status = match status_chars.chars().nth(1).unwrap_or(' ') {
+        'M' => FileStatus::Modified,
+        'A' => FileStatus::Added,
+        'D' => FileStatus::Deleted,
+        '?' => FileStatus::Untracked,
+        _ => FileStatus::Unchanged,
+    };
+
+    (path, local_status, source_status)
 }

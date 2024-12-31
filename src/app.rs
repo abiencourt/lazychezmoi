@@ -10,21 +10,14 @@ use ratatui::{
 };
 
 use crate::chezmoi;
+use crate::utils::FileStatus;
 
 #[derive(Debug)]
 pub struct FileItem {
     pub(crate) path: String,
     pub(crate) selected: bool,
-    pub(crate) status: FileStatus,
-}
-
-#[derive(Debug)]
-pub enum FileStatus {
-    Added,
-    Modified,
-    Deleted,
-    Untracked,
-    Renamed,
+    pub(crate) local_status: FileStatus,
+    pub(crate) source_status: FileStatus,
 }
 
 #[derive(Debug, Default)]
@@ -174,12 +167,20 @@ impl App {
             .files
             .iter()
             .map(|file| {
-                let (symbol, style) = match file.status {
+                let (local_symbol, local_style) = match file.local_status {
                     FileStatus::Added => ("A", Style::default().fg(Color::Green)),
                     FileStatus::Modified => ("M", Style::default().fg(Color::Yellow)),
                     FileStatus::Deleted => ("D", Style::default().fg(Color::Red)),
                     FileStatus::Untracked => ("?", Style::default().fg(Color::Red)),
-                    FileStatus::Renamed => ("R", Style::default().fg(Color::Blue)),
+                    FileStatus::Unchanged => (" ", Style::default()),
+                };
+
+                let (source_symbol, source_style) = match file.source_status {
+                    FileStatus::Added => ("A", Style::default().fg(Color::Green)),
+                    FileStatus::Modified => ("M", Style::default().fg(Color::Yellow)),
+                    FileStatus::Deleted => ("D", Style::default().fg(Color::Red)),
+                    FileStatus::Untracked => ("?", Style::default().fg(Color::Red)),
+                    FileStatus::Unchanged => (" ", Style::default()),
                 };
 
                 let selection_prefix = if file.selected { "✓" } else { " " };
@@ -192,9 +193,10 @@ impl App {
                             Style::default()
                         },
                     ),
-                    Span::styled(symbol, style),
+                    Span::styled(local_symbol, local_style),
+                    Span::styled(source_symbol, source_style),
                     Span::raw(" "),
-                    Span::styled(&file.path, style),
+                    Span::raw(&file.path),
                 ]))
             })
             .collect();
