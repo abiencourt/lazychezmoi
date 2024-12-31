@@ -1,0 +1,12 @@
+[package]
+name = "lazychezmoi"
+version = "0.1.0"
+authors = ["Adrien Biencourt"]
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+crossterm = "0.28.1"
+ratatui = "0.29.0"
+color-eyre = "0.6.3"
+strip-ansi-escapes = "0.2.0"
