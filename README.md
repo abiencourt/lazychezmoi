@@ -4,6 +4,12 @@
 
 Heavily inspired by [lazygit](https://github.com/jesseduffield/lazygit).
 
+> [!WARNING]
+> This project is in early development. Development is exclusively done on Linux.
+> Features and designs decisions are still being made. See the [Roadmap](#roadmap).
+
+![Presentation screenshot](./docs/screenshots/first_ui.png)
+
 ## Table of contents
 
 <!-- toc -->
@@ -14,6 +20,13 @@ Heavily inspired by [lazygit](https://github.com/jesseduffield/lazygit).
   - [Integrated chezmoi commands](#integrated-chezmoi-commands)
 - [Usage](#usage)
   - [Keybindings](#keybindings)
+  - [Installation](#installation)
+    - [Requirements](#requirements)
+    - [Manual installation](#manual-installation)
+- [Roadmap](#roadmap)
+  - [Design idea](#design-idea)
+  - [Features to implement](#features-to-implement)
+  - [CICD](#cicd)
 
 <!-- tocstop -->
 
@@ -47,3 +60,38 @@ Heavily inspired by [lazygit](https://github.com/jesseduffield/lazygit).
 - `A`: Apply selected files
 - `S`: Open chezmoi source directory
 - `q/Esc`: Quit application
+
+### Installation
+
+#### Requirements
+
+- [chezmoi](https://chezmoi.io)
+- `rust`/`cargo` ([installation instructions](https://www.rust-lang.org/tools/install))
+
+#### Manual installation
+
+```sh
+git clone https://github.com/abiencourt/lazychezmoi.git
+cd lazychezmoi
+cargo run
+```
+
+## Roadmap
+
+### Design ideas
+
+- [ ] Implement 2 additional panes to see files selected "to re-add" and "to apply"
+  - [ ] Right now, if you select a mix of "re-add" and "apply" file, it might cause unwanted behaviour
+
+### Feature ideas
+- [ ] Add a "discard" keymapping that will present "local" and/or "source" changes option to discard
+- [ ] Integration with `lazygit` to see source
+- [ ] Add `chezmoi git` commands
+
+### CICD
+
+- [ ] Deploy to cargo registry
+- [ ] Deploy to [brew.sh](https://brew.sh)
+- [ ] Deploy to AUR
+- [ ] Add automated testing
+- [ ] Test on Windows and MacOS
