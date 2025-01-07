@@ -2,20 +2,36 @@ use color_eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
+use ratatui::widgets::Borders;
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::Stylize,
-    widgets::{Block, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Clear, List, ListItem, ListState, Paragraph},
     DefaultTerminal, Frame,
 };
 
 use crate::chezmoi;
 use crate::utils::FileStatus;
 
+#[derive(Debug, Clone)]
+pub enum PopupAction {
+    Apply,
+    ReAdd,
+    Cancel,
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub enum Selection {
+    #[default]
+    None,
+    Source,
+    Local,
+}
+
 #[derive(Debug)]
 pub struct FileItem {
     pub(crate) path: String,
-    pub(crate) selected: bool,
+    pub(crate) selected: Selection,
     pub(crate) local_status: FileStatus,
     pub(crate) source_status: FileStatus,
 }
@@ -27,6 +43,9 @@ pub struct App {
     chezmoi_file_diff: String,
     list_state: ListState,
     error_message: Option<String>,
+    show_popup: bool,
+    popup_items: Vec<(String, PopupAction)>, // Tuple of display string and action
+    popup_state: ListState,
 }
 
 impl App {
@@ -37,6 +56,9 @@ impl App {
             chezmoi_file_diff: String::new(),
             list_state: ListState::default(),
             error_message: None,
+            show_popup: false,
+            popup_items: Vec::new(),
+            popup_state: ListState::default(),
         };
         app.files = chezmoi::update_status();
         app.list_state.select(Some(0));
@@ -56,10 +78,36 @@ impl App {
             .unwrap_or_default()
     }
 
-    fn get_selected_files(&self) -> Vec<String> {
+    fn get_selected_local_files(&self) -> Vec<String> {
         self.files
             .iter()
-            .filter(|f| f.selected)
+            .filter(|f| {
+                f.selected == Selection::Local
+                    && matches!(
+                        f.local_status,
+                        FileStatus::Added
+                            | FileStatus::Modified
+                            | FileStatus::Deleted
+                            | FileStatus::Untracked
+                    )
+            })
+            .map(|f| f.path.clone())
+            .collect()
+    }
+
+    fn get_selected_source_files(&self) -> Vec<String> {
+        self.files
+            .iter()
+            .filter(|f| {
+                f.selected == Selection::Source
+                    && matches!(
+                        f.source_status,
+                        FileStatus::Added
+                            | FileStatus::Modified
+                            | FileStatus::Deleted
+                            | FileStatus::Untracked
+                    )
+            })
             .map(|f| f.path.clone())
             .collect()
     }
@@ -80,16 +128,35 @@ impl App {
     fn toggle_selected_file(&mut self) {
         if let Some(selected) = self.list_state.selected() {
             if let Some(file) = self.files.get_mut(selected) {
-                file.selected = !file.selected;
+                file.selected = match file.selected {
+                    Selection::None => {
+                        if file.local_status != FileStatus::Unchanged {
+                            Selection::Local
+                        } else {
+                            Selection::Source
+                        }
+                    }
+                    Selection::Local => {
+                        if file.source_status != FileStatus::Unchanged {
+                            Selection::Source
+                        } else {
+                            Selection::None
+                        }
+                    }
+                    Selection::Source => Selection::None,
+                };
             }
         }
     }
 
     fn apply_selected_files(&mut self) {
-        let selected_files = self.get_selected_files();
+        let selected_files = self.get_selected_source_files();
         if !selected_files.is_empty() {
             match chezmoi::apply(&selected_files) {
                 Ok(_) => {
+                    for file in &mut self.files {
+                        file.selected = Selection::None;
+                    }
                     self.files = chezmoi::update_status();
                     self.update_selected_diff();
                     self.error_message = None;
@@ -101,11 +168,14 @@ impl App {
         }
     }
 
-    fn add_selected_files(&mut self) {
-        let selected_files = self.get_selected_files();
+    fn re_add_selected_files(&mut self) {
+        let selected_files = self.get_selected_local_files();
         if !selected_files.is_empty() {
-            match chezmoi::add(&selected_files) {
+            match chezmoi::re_add(&selected_files) {
                 Ok(_) => {
+                    for file in &mut self.files {
+                        file.selected = Selection::None;
+                    }
                     self.files = chezmoi::update_status();
                     self.update_selected_diff();
                     self.error_message = None;
@@ -148,6 +218,35 @@ impl App {
         Ok(())
     }
 
+    fn draw_popup(&mut self, frame: &mut Frame) {
+        let block = Block::default()
+            .title("Select an action")
+            .borders(Borders::ALL);
+        let area = frame.area();
+
+        let popup_area = Rect {
+            x: (area.width - 60) / 2,
+            y: (area.height - 10) / 2,
+            width: 60,
+            height: 10,
+        };
+
+        frame.render_widget(Clear, popup_area);
+
+        // Update to use only the first part of the tuple (the display string)
+        let items: Vec<ListItem> = self
+            .popup_items
+            .iter()
+            .map(|(text, _)| ListItem::new(text.as_str()))
+            .collect();
+
+        let list = List::new(items)
+            .block(block)
+            .highlight_style(Style::default().bg(Color::DarkGray));
+
+        frame.render_stateful_widget(list, popup_area, &mut self.popup_state);
+    }
+
     fn draw(&mut self, frame: &mut Frame) {
         let main_chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -183,14 +282,18 @@ impl App {
                     FileStatus::Unchanged => (" ", Style::default()),
                 };
 
-                let selection_prefix = if file.selected { "✓" } else { " " };
+                let selection_prefix = match file.selected {
+                    Selection::None => " ",
+                    Selection::Local => "L",
+                    Selection::Source => "S",
+                };
                 ListItem::new(Line::from(vec![
                     Span::styled(
                         format!("{} ", selection_prefix),
-                        if file.selected {
-                            Style::default().fg(Color::Green)
-                        } else {
+                        if file.selected == Selection::None {
                             Style::default()
+                        } else {
+                            Style::default().fg(Color::Green)
                         },
                     ),
                     Span::styled(local_symbol, local_style),
@@ -256,16 +359,13 @@ impl App {
                 " Down".gray(),
                 " | ".dark_gray(),
                 "<space>".blue().bold(),
-                " Toggle".gray(),
+                " Select file(s)".gray(),
                 " | ".dark_gray(),
                 "e".blue().bold(),
                 " Edit highlighted file".gray(),
                 " | ".dark_gray(),
-                "a".blue().bold(),
-                " Add/re-add selected".gray(),
-                " | ".dark_gray(),
                 "A".blue().bold(),
-                " Apply selected".gray(),
+                " Apply/Re-add selected files".gray(),
                 " | ".dark_gray(),
                 "S".blue().bold(),
                 " Open chezmoi source".gray(),
@@ -275,6 +375,38 @@ impl App {
                 Paragraph::new(Line::from(help_text)).alignment(ratatui::layout::Alignment::Left),
                 main_chunks[1],
             );
+        }
+
+        if self.show_popup {
+            self.draw_popup(frame);
+        }
+    }
+
+    pub fn show_popup(&mut self, items: Vec<(String, PopupAction)>) {
+        self.show_popup = true;
+        self.popup_items = items;
+        self.popup_state.select(Some(0));
+    }
+
+    pub fn show_action_popup(&mut self) {
+        self.popup_items = vec![
+            ("Apply selected files".to_string(), PopupAction::Apply),
+            ("Re-add selected files".to_string(), PopupAction::ReAdd),
+            ("Cancel".to_string(), PopupAction::Cancel),
+        ];
+        self.show_popup = true;
+        self.popup_state.select(Some(0));
+    }
+
+    fn handle_popup_selection(&mut self) {
+        if let Some(i) = self.popup_state.selected() {
+            if let Some((_, action)) = self.popup_items.get(i) {
+                match action {
+                    PopupAction::Apply => self.apply_selected_files(),
+                    PopupAction::ReAdd => self.re_add_selected_files(),
+                    PopupAction::Cancel => self.show_popup = false,
+                }
+            }
         }
     }
 
@@ -293,19 +425,58 @@ impl App {
     }
 
     fn on_key_event(&mut self, key: KeyEvent) {
-        match (key.modifiers, key.code) {
-            (_, KeyCode::Esc | KeyCode::Char('q'))
-            | (KeyModifiers::CONTROL, KeyCode::Char('c') | KeyCode::Char('C')) => self.quit(),
-            (_, KeyCode::Char(' ')) => self.toggle_selected_file(),
-            (_, KeyCode::Char('S')) => {
-                self.open_chezmoi_source();
+        if self.show_popup {
+            match key.code {
+                KeyCode::Esc => {
+                    self.show_popup = false;
+                }
+                KeyCode::Enter => {
+                    self.handle_popup_selection();
+                    self.show_popup = false;
+                }
+                KeyCode::Up | KeyCode::Char('k') => {
+                    let i = match self.popup_state.selected() {
+                        Some(i) => {
+                            if i == 0 {
+                                self.popup_items.len() - 1
+                            } else {
+                                i - 1
+                            }
+                        }
+                        None => 0,
+                    };
+                    self.popup_state.select(Some(i));
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    let i = match self.popup_state.selected() {
+                        Some(i) => {
+                            if i >= self.popup_items.len() - 1 {
+                                0
+                            } else {
+                                i + 1
+                            }
+                        }
+                        None => 0,
+                    };
+                    self.popup_state.select(Some(i));
+                }
+                _ => {}
             }
-            (_, KeyCode::Char('a')) => self.add_selected_files(),
-            (_, KeyCode::Char('A')) => self.apply_selected_files(),
-            (_, KeyCode::Char('e')) => self.edit_highlighted_file(),
-            (_, KeyCode::Up | KeyCode::Char('k')) => self.previous_item(),
-            (_, KeyCode::Down | KeyCode::Char('j')) => self.next_item(),
-            _ => {}
+        } else {
+            match (key.modifiers, key.code) {
+                (_, KeyCode::Esc | KeyCode::Char('q'))
+                | (KeyModifiers::CONTROL, KeyCode::Char('c') | KeyCode::Char('C')) => self.quit(),
+                (_, KeyCode::Char(' ')) => self.toggle_selected_file(),
+                (_, KeyCode::Char('S')) => {
+                    self.open_chezmoi_source();
+                }
+                (_, KeyCode::Char('A')) => self.show_action_popup(),
+                //(_, KeyCode::Char('A')) => self.apply_selected_files(),
+                (_, KeyCode::Char('e')) => self.edit_highlighted_file(),
+                (_, KeyCode::Up | KeyCode::Char('k')) => self.previous_item(),
+                (_, KeyCode::Down | KeyCode::Char('j')) => self.next_item(),
+                _ => {}
+            }
         }
     }
 

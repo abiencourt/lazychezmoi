@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use crate::app::FileItem;
+use crate::app::{FileItem, Selection};
 use crate::utils;
 
 pub const HOME: &str = "~/";
@@ -35,7 +35,7 @@ pub fn update_status() -> Vec<FileItem> {
             let (path, local_status, source_status) = utils::extract_filename_and_status(line);
             FileItem {
                 path,
-                selected: false,
+                selected: Selection::None,
                 local_status,
                 source_status,
             }
@@ -58,9 +58,9 @@ pub fn diff(path: &str) -> String {
     String::from_utf8_lossy(&stripped).to_string()
 }
 
-pub fn add(selected_files: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+pub fn re_add(selected_files: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let mut command = Command::new("chezmoi");
-    command.arg("add");
+    command.arg("re-add");
 
     // Add each file as a separate argument
     for file in selected_files {
