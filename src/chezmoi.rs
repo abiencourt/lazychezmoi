@@ -59,10 +59,15 @@ pub fn diff(path: &str) -> String {
 }
 
 pub fn add(selected_files: &[String]) -> Result<(), Box<dyn std::error::Error>> {
-    let output = Command::new("chezmoi")
-        .arg("add")
-        .arg(format!("{}{}", HOME, selected_files.join(" ")))
-        .output()?;
+    let mut command = Command::new("chezmoi");
+    command.arg("add");
+
+    // Add each file as a separate argument
+    for file in selected_files {
+        command.arg(format!("{}{}", HOME, file));
+    }
+
+    let output = command.output()?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).into());
@@ -72,10 +77,14 @@ pub fn add(selected_files: &[String]) -> Result<(), Box<dyn std::error::Error>> 
 }
 
 pub fn apply(selected_files: &[String]) -> Result<(), Box<dyn std::error::Error>> {
-    let output = Command::new("chezmoi")
-        .arg("apply")
-        .arg(format!("{}{}", HOME, selected_files.join(" ")))
-        .output()?;
+    let mut command = Command::new("chezmoi");
+    command.arg("apply");
+
+    for file in selected_files {
+        command.arg(format!("{}{}", HOME, file));
+    }
+
+    let output = command.output()?;
 
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).into());
