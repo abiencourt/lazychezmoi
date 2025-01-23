@@ -21,6 +21,7 @@ jobs:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
+          token: ${{secrets.RELEASE_PLEASE_PAT }}
           release-type: rust
 
       # Only run the following steps if a release was created
