@@ -1,0 +1,34 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/release-please-action@v4
+        id: release
+        with:
+          release-type: rust
+      - uses: actions/checkout@v4
+        if: ${{ steps.release.outputs.release_created }}
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        if: ${{ steps.release.outputs.release_created }}
+      - name: Publish to crates.io
+        run: >
+          cargo publish
+          --verbose
+          --locked
+          --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        if: ${{ steps.release.outputs.release_created }}
