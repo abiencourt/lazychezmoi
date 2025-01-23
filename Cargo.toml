@@ -1,9 +1,15 @@
 [package]
 name = "lazychezmoi"
 version = "0.1.0"
-authors = ["Adrien Biencourt"]
+authors = ["Adrien Biencourt <adrien@bncrt.com>"]
 license = "MIT"
 edition = "2021"
+description = "A lazy wrapper around chezmoi"
+readme = "README.md"
+homepage = "https://github.com/abiencourt/lazychezmoi"
+repository = "https://github.com/abiencourt/lazychezmoi"
+keywords = ["chezmoi", "dotfiles", "lazy", "ratatui"]
+categories = ["command-line-utilities", "filesystem"]
 
 [dependencies]
 crossterm = "0.28.1"
