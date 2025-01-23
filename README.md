@@ -24,8 +24,8 @@ Heavily inspired by [lazygit](https://github.com/jesseduffield/lazygit).
     - [Requirements](#requirements)
     - [Manual installation](#manual-installation)
 - [Roadmap](#roadmap)
-  - [Design idea](#design-idea)
-  - [Features to implement](#features-to-implement)
+  - [Design ideas](#design-ideas)
+  - [Feature ideas](#feature-ideas)
   - [CICD](#cicd)
 
 <!-- tocstop -->
@@ -55,7 +55,7 @@ Heavily inspired by [lazygit](https://github.com/jesseduffield/lazygit).
 - `↑/k`: Navigate up
 - `↓/j`: Navigate down
 - `Space`: Toggle file selection
-- `e`: Edit highlighted file
+- `e`: Edit highlighted file in source
 - `a`: Add/re-add selected files
 - `A`: Apply selected files
 - `S`: Open chezmoi source directory
@@ -84,6 +84,7 @@ cargo run
   - [ ] Right now, if you select a mix of "re-add" and "apply" file, it might cause unwanted behaviour
 
 ### Feature ideas
+
 - [ ] Add a "discard" keymapping that will present "local" and/or "source" changes option to discard
 - [ ] Integration with `lazygit` to see source
 - [ ] Add `chezmoi git` commands
