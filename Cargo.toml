@@ -1,6 +1,6 @@
 [package]
 name = "lazychezmoi"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Adrien Biencourt <adrien@bncrt.com>"]
 license = "MIT"
 edition = "2021"
